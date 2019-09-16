@@ -8,7 +8,7 @@ services:
       ports:
         - 5432:5432 # Bind host port 5432 to PostgreSQL port 5432
       volumes:
-        - ./pgdata:/var/lib/postgresql/data
+        - ./pgdata:/var/lib/postgresql/data:z
       environment:
         - LC_ALL=C.UTF-8
         - POSTGRES_USER=docker
