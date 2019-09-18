@@ -2,8 +2,10 @@ from decimal import Decimal
 
 from django.db import transaction
 from rest_framework import serializers
+from rest_framework.validators import UniqueValidator
 
-from billing.models import TransactionEntry, Transaction, ExchangeRate
+from billing.constants import CURRENCIES
+from billing.models import TransactionEntry, Transaction, ExchangeRate, User
 
 
 class TransactionEntrySerializer(serializers.ModelSerializer):
@@ -92,3 +94,21 @@ class ExchangeRateSerializerRead(ExchangeRateSerializer):
         Result: 1.30 / 0.90 = 1.44.
         """
         return round(obj.rate / self.context.get("base_rate"), 2)
+
+
+class UserSerializerRead(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ("id", "username", "email", "wallet")
+
+
+class UserSerializerWrite(serializers.ModelSerializer):
+    currency = serializers.ChoiceField(choices=CURRENCIES, required=True)
+    email = serializers.EmailField(
+        validators=[UniqueValidator(queryset=User.objects.all())]
+    )
+
+    class Meta:
+        model = User
+        fields = ("id", "username", "email", "city", "country", "password", "currency")
+

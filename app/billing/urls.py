@@ -11,7 +11,7 @@ from rest_framework import permissions
 from drf_yasg.views import get_schema_view
 from drf_yasg import openapi
 
-from billing.views import index, TopUpWalletView, ExchangeRateList
+from billing.views import index, TopUpWalletView, ExchangeRateList, SignupView
 
 admin.site.site_header = "Billing Administration"
 schema_view = get_schema_view(
@@ -44,7 +44,8 @@ urlpatterns = [
     url(
         r"^redoc/$", schema_view.with_ui("redoc", cache_timeout=0), name="schema-redoc"
     ),
-    path("api/token/", TokenObtainPairView.as_view(), name="token_obtain_pair"),
+    path("api/signup/", SignupView.as_view(), name="signup"),
+    path("api/login/", TokenObtainPairView.as_view(), name="login"),
     path("api/token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
     path("api/wallets/top-up/", TopUpWalletView.as_view(), name="top-up-wallet"),
     path("api/exchange-rates/", ExchangeRateList.as_view(), name="exchange-rates"),

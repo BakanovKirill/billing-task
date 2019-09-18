@@ -1,21 +1,42 @@
 from datetime import date
+
 from django.shortcuts import render
-from rest_framework import status, viewsets
+from rest_framework import status
 from rest_framework.generics import CreateAPIView, ListAPIView
 from rest_framework.response import Response
 from rest_framework import serializers
 from billing.constants import USD
 from billing.context import top_up_wallet, find_exchange_rates, create_exchange_rates
-from billing.models import ExchangeRate
+from billing.models import ExchangeRate, Wallet
 from billing.serializers import (
     TransactionSerializer,
     TopUpSerializer,
     ExchangeRateSerializerRead,
+    UserSerializerWrite,
+    UserSerializerRead,
 )
 
 
 def index(request):
     return render(request, template_name="index.html")
+
+
+class SignupView(CreateAPIView):
+    serializer_class = UserSerializerWrite
+
+    def post(self, request, *args, **kwargs):
+        serializer_instance = self.get_serializer(data=request.data)
+        serializer_instance.is_valid(raise_exception=True)
+        currency = serializer_instance.validated_data.pop("currency")
+
+        user = serializer_instance.save()
+
+        Wallet.objects.create(user=user, currency=currency)
+        # user.refresh_from_db()
+
+        return Response(
+            status=status.HTTP_201_CREATED, data=UserSerializerRead(instance=user).data
+        )
 
 
 class TopUpWalletView(CreateAPIView):
