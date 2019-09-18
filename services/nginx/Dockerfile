@@ -9,4 +9,4 @@ EXPOSE 80 443
 
 RUN mkdir /logs
 COPY services/nginx/nginx.conf /etc/nginx/
-COPY services/nginx/hello.conf /etc/nginx/sites-enabled/
+COPY services/nginx/billing.conf /etc/nginx/sites-enabled/

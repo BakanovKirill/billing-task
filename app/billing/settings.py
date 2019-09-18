@@ -26,9 +26,10 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "debug_toolbar",
-    'drf_yasg',
+    "rest_framework",
+    "drf_yasg",
 
-    "billing",
+    "billing.apps.BillingAppConfig",
 ]
 
 MIDDLEWARE = [
@@ -138,3 +139,6 @@ REST_FRAMEWORK = {
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.LimitOffsetPagination",
     "PAGE_SIZE": 200,
 }
+
+
+EXCHANGE_RATES_URL = "https://api.exchangeratesapi.io/"

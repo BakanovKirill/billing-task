@@ -15,7 +15,7 @@ set -e
 [ -z "$POSTGRES_PASSWORD" ] && echo "ERROR: Need to set POSTGRES_PASSWORD" && exit 1;
 
 # Used by uwsgi.ini file to start the wsgi Django application
-[ -z "$WSGI_MODULE" ] && echo "ERROR: Need to set WSGI_MODULE. E.g.: hello.wsgi:application" && exit 1;
+[ -z "$WSGI_MODULE" ] && echo "ERROR: Need to set WSGI_MODULE. E.g.: billing.wsgi:application" && exit 1;
 
 
 # Define help message
@@ -62,6 +62,7 @@ case "$1" in
     setup_db)
         psql -h $POSTGRES_PORT_5432_TCP_ADDR -U $POSTGRES_USER -c "CREATE DATABASE $POSTGRES_DB_NAME"
         python manage.py migrate
+        python manage.py loaddata user.json
     ;;
     lint)
         pylint "${@:2}"

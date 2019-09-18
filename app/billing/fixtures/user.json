@@ -1,0 +1,22 @@
+[
+  {
+    "model": "billing.user",
+    "pk": 1,
+    "fields": {
+      "password": "pbkdf2_sha256$150000$3cm28E8lRs9m$BgXBfTe8ThHYhFwqRS0N8Ol4r6Xwps7s90m84mcyyWA=",
+      "last_login": "2019-09-17T11:12:45Z",
+      "is_superuser": true,
+      "username": "admin",
+      "first_name": "Kirill",
+      "last_name": "Bakanov",
+      "email": "kirill.bakanov@gmail.com",
+      "is_staff": true,
+      "is_active": true,
+      "date_joined": "2019-09-17T11:12:11Z",
+      "country": "",
+      "city": "",
+      "groups": [],
+      "user_permissions": []
+    }
+  }
+]
