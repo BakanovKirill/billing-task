@@ -1,19 +1,28 @@
 from datetime import date
 
 from django.shortcuts import render
-from rest_framework import status
+from rest_framework import status, viewsets
+from rest_framework.authentication import BasicAuthentication
 from rest_framework.generics import CreateAPIView, ListAPIView
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework import serializers
+
 from billing.constants import USD
-from billing.context import top_up_wallet, find_exchange_rates, create_exchange_rates
-from billing.models import ExchangeRate, Wallet
+from billing.context import (
+    top_up_wallet,
+    find_exchange_rates,
+    create_exchange_rates,
+    send_payment,
+    find_transactions,
+)
 from billing.serializers import (
     TransactionSerializer,
     TopUpSerializer,
     ExchangeRateSerializerRead,
     UserSerializerWrite,
     UserSerializerRead,
+    PaymentSerializer,
 )
 
 
@@ -23,16 +32,13 @@ def index(request):
 
 class SignupView(CreateAPIView):
     serializer_class = UserSerializerWrite
+    permission_classes = (AllowAny,)
+    authentication_classes = [BasicAuthentication]
 
     def post(self, request, *args, **kwargs):
         serializer_instance = self.get_serializer(data=request.data)
         serializer_instance.is_valid(raise_exception=True)
-        currency = serializer_instance.validated_data.pop("currency")
-
         user = serializer_instance.save()
-
-        Wallet.objects.create(user=user, currency=currency)
-        # user.refresh_from_db()
 
         return Response(
             status=status.HTTP_201_CREATED, data=UserSerializerRead(instance=user).data
@@ -50,7 +56,34 @@ class TopUpWalletView(CreateAPIView):
         )
         return Response(
             status=status.HTTP_201_CREATED,
-            data=TransactionSerializer(instance=transaction).data,
+            data=dict(
+                balance=request.user.wallet.balance,
+                transaction=TransactionSerializer(instance=transaction).data,
+            ),
+        )
+
+
+class TransactionViewset(viewsets.ModelViewSet):
+    def get_serializer_class(self):
+        if self.request.method == "POST":
+            return PaymentSerializer
+        return TransactionSerializer
+
+    def get_queryset(self):
+        return find_transactions(dict(wallet=self.request.user.wallet))
+
+    def post(self, request, *args, **kwargs):
+        payment_serializer = PaymentSerializer(data=request.data)
+        payment_serializer.is_valid(raise_exception=True)
+        user_wallet = request.user.wallet
+        if user_wallet.balance < payment_serializer.validated_data["amount"]:
+            raise serializers.ValidationError("More gold is needed.")
+        transaction_data = send_payment(
+            source_wallet=user_wallet, **payment_serializer.validated_data
+        )
+        return Response(
+            status=status.HTTP_201_CREATED,
+            data=dict(balance=user_wallet.balance, transaction=transaction_data),
         )
 
 
@@ -69,8 +102,8 @@ class ExchangeRateList(ListAPIView):
         return queryset
 
     def list(self, request, *args, **kwargs):
-        """
-        Returns currency rates based on `from_currency` query parameter.
+        """Returns currency rates based on `from_currency` query parameter.
+
         For example if from_currency is EUR, it will calculate all rates based on EUR to other currencies.
         Default stored from_currency is USD.
 
@@ -85,12 +118,12 @@ class ExchangeRateList(ListAPIView):
         )
 
         # Download new rates for date if needed.
-        if not ExchangeRate.objects.filter(date=to_date).exists():
+        if not find_exchange_rates(dict(date=to_date)).exists():
             create_exchange_rates(date=to_date)
 
         # Find base rate for currency conversion calculations.
-        exchange_rate = ExchangeRate.objects.filter(
-            to_currency=from_currency, date=to_date
+        exchange_rate = find_exchange_rates(
+            dict(to_currency=from_currency, date=to_date)
         ).first()
 
         if not exchange_rate:
@@ -101,7 +134,9 @@ class ExchangeRateList(ListAPIView):
         return Response(
             {
                 "results": self.serializer_class(
-                    self.get_queryset(),
+                    self.get_queryset().exclude(
+                        to_currency=from_currency
+                    ),  # remove self rate from results, e.g. USD to USD
                     many=True,
                     context=dict(
                         base_currency=from_currency, base_rate=exchange_rate.rate

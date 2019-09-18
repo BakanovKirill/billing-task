@@ -7,7 +7,6 @@ django-annoying
 djangorestframework-simplejwt
 drf-yasg
 packaging
-mock
 
 # Dev packages
 pylint              # python code static checker
@@ -15,3 +14,5 @@ black
 ipdb
 ipython
 django-debug-toolbar   # A configurable set of panels that display various debug information about the current request/response.
+django-querycount
+mock

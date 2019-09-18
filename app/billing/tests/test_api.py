@@ -8,7 +8,8 @@ from rest_framework.test import APIClient
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from billing.constants import USD, EUR, CAD
-from billing.models import User, Wallet, Transaction, ExchangeRate
+from billing.context import top_up_wallet
+from billing.models import User, Wallet, Transaction, ExchangeRate, TransactionEntry
 
 
 class TestAPI(TestCase):
@@ -38,14 +39,16 @@ class TestAPI(TestCase):
         self.user2_wallet = Wallet.objects.create(currency=EUR, user=self.user2)
 
         self.client = APIClient()
+        self.anon_client = APIClient()
         refresh = RefreshToken.for_user(self.user)
         self.client.credentials(
             HTTP_AUTHORIZATION=f"Bearer {str(refresh.access_token)}"
         )
 
     def test_auth_permissions_work(self):
-        client = APIClient()
-        result = client.post(reverse("top-up-wallet"), dict(amount=100), format="json")
+        result = self.anon_client.post(
+            reverse("top-up-wallet"), dict(amount=100), format="json"
+        )
 
         self.assertEquals(result.status_code, 401)
 
@@ -62,12 +65,14 @@ class TestAPI(TestCase):
             reverse("top-up-wallet"), dict(amount=100), format="json"
         )
         self.assertEquals(result.status_code, 201)
-        self.assertEquals(result.data["description"], "Top up")
-        self.assertTrue(result.data["is_top_up"])
-        self.assertEquals(len(result.data["entries"]), 1)
-        self.assertEquals(result.data["entries"][0]["wallet"], self.user_wallet.id)
-        self.assertEquals(result.data["entries"][0]["amount"], "100.00")
+        transaction_data = result.data["transaction"]
+        self.assertEquals(transaction_data["description"], "Top up")
+        self.assertTrue(transaction_data["is_top_up"])
+        self.assertEquals(len(transaction_data["entries"]), 1)
+        self.assertEquals(transaction_data["entries"][0]["wallet"], self.user_wallet.id)
+        self.assertEquals(transaction_data["entries"][0]["amount"], "100.00")
         self.assertEquals(Transaction.objects.count(), 1)
+        self.assertEquals(TransactionEntry.objects.count(), 1)
 
         self.user_wallet.refresh_from_db()
         self.assertEquals(self.user_wallet.balance, 100)
@@ -112,19 +117,64 @@ class TestAPI(TestCase):
         # Rates calculated according to from_currency in request
         self.assertEquals(result.data["results"][0]["rate"], Decimal("1.11"))
         self.assertEquals(result.data["results"][1]["rate"], Decimal("1.48"))
-        result = self.client.get(f"{reverse('exchange-rates')}?from_currency=EUR&date={date.today()}")
+        result = self.client.get(
+            f"{reverse('exchange-rates')}?from_currency=EUR&date={date.today()}"
+        )
         self.assertEquals(len(result.data["results"]), 2)  # self rate excluded
-    # def test_register(self):
-    #     result = self.client.post(
-    #         reverse("register"),
-    #         dict(
-    #             username="hellothere",
-    #             password="asd12345",
-    #             city="Kiev",
-    #             country="Ukraine",
-    #             currency=USD,
-    #         ),
-    #         format="json",
-    #     )
-    #     self.assertEquals(result.status_code, 201)
-    #     result = result.json()
+
+    def test_signup(self):
+        result = self.anon_client.post(
+            reverse("signup"),
+            dict(
+                username="hellothere",
+                password="GeneralKenobi!",
+                email="order66@gmail.com",
+                city="Jedi Temple",
+                country="Coruscant",
+                currency=CAD,
+            ),
+            format="json",
+        )
+        self.assertEquals(result.status_code, 201)
+        result = result.json()
+        self.assertIsNotNone(result["id"])
+        self.assertIsNotNone(result["wallet"])
+        self.assertEquals(result["email"], "order66@gmail.com")
+        self.assertEquals(result["username"], "hellothere")
+        self.assertTrue(User.objects.filter(username="hellothere").count(), 1)
+        self.assertEquals(
+            sorted(result["wallet"].keys()), sorted(["id", "balance", "currency"])
+        )
+        self.assertEquals(result["wallet"]["currency"], CAD)
+
+    def test_send_money(self):
+        today = date.today()
+        ExchangeRate.objects.create(
+            from_currency=USD, to_currency=USD, rate=1, date=today
+        )
+        ExchangeRate.objects.create(
+            from_currency=USD, to_currency=EUR, rate=0.90, date=today
+        )
+        self.assertEquals(self.user_wallet.balance, 0)
+        post_data = dict(
+            amount=100,
+            description="It's a trap!",
+            destination_wallet=self.user2_wallet.id,
+        )
+        result = self.client.post(reverse("transactions"), post_data, format="json")
+        # didn't validate because not enough funds
+        self.assertEquals(result.status_code, 400)
+        self.assertEquals(result.json(), ["More gold is needed."])
+        # Add 500 $ to user wallet
+        top_up_wallet(self.user_wallet, 500)
+        result = self.client.post(reverse("transactions"), post_data, format="json")
+
+        self.assertEquals(result.status_code, 201)
+        self.user_wallet.refresh_from_db()
+        self.user2_wallet.refresh_from_db()
+        self.assertEquals(self.user_wallet.balance, Decimal("400"))
+        self.assertEquals(self.user2_wallet.balance, Decimal("90"))
+        self.assertEquals(Transaction.objects.count(), 2)  # 1 top up, 1 payment
+        self.assertEquals(
+            TransactionEntry.objects.count(), 3
+        )  # 1 top up, 2 for payment

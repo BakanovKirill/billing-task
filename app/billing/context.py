@@ -1,12 +1,17 @@
+from datetime import date
+from decimal import Decimal
+
 import requests
 
 from django.conf import settings
+from django.db import transaction
 from django.db.models import Sum
 from rest_framework import serializers
 
 from billing.models import Transaction, TransactionEntry, ExchangeRate
 from billing.constants import USD, SUPPORTED_CURRENCIES
-from billing.serializers import ExchangeRateSerializer
+from billing.serializers import ExchangeRateSerializer, TransactionSerializer
+from billing.utils import calculate_currency_rate
 
 
 def create_transaction_entry(attrs):
@@ -22,38 +27,64 @@ def create_transaction_entry(attrs):
     return entry
 
 
+def create_transaction(transaction_attrs, entries):
+    # atomic to rollback if anything throws an exception
+    with transaction.atomic():
+        transaction_instance = Transaction.objects.create(**transaction_attrs)
+        for entry_data in entries:
+            create_transaction_entry(
+                dict(transaction=transaction_instance, **entry_data)
+            )
+
+    return transaction_instance
+
+
 def top_up_wallet(wallet, amount):
-    transaction = Transaction.objects.create(description="Top up", is_top_up=True)
-    create_transaction_entry(
-        dict(transaction=transaction, amount=amount, wallet=wallet)
+    return create_transaction(
+        transaction_attrs=dict(description="Top up", is_top_up=True),
+        entries=[dict(amount=amount, wallet=wallet)],
     )
-    return transaction
 
 
 def send_payment(source_wallet, destination_wallet, amount, description):
-    transaction_data = dict(
-        description=description, entries=[dict(amount=-amount, wallet=source_wallet)]
-    )
+    source_entry = dict(amount=-amount, wallet=source_wallet)
     destination_entry = dict(amount=amount, wallet=destination_wallet)
-    if destination_wallet.currency != source_wallet.currency:
-        # TODO: convert currency
-        destination_entry["amount"] = amount
 
-    transaction_data["entries"].append(destination_entry)
+    if destination_wallet.currency != source_wallet.currency:
+        from_rate = (
+            find_exchange_rates(dict(to_currency=source_wallet.currency)).first().rate
+        )
+        to_rate = (
+            find_exchange_rates(dict(to_currency=destination_wallet.currency))
+            .first()
+            .rate
+        )
+        destination_entry["amount"] = (
+            amount * calculate_currency_rate(base_rate=from_rate, target_rate=to_rate)
+        ).quantize(Decimal("1.00"))
+
+    transaction_instance = create_transaction(
+        dict(description=description), entries=[source_entry, destination_entry]
+    )
+    return TransactionSerializer(instance=transaction_instance).data
+
+
+def find_transactions(filters):
+    queryset = Transaction.objects.prefetch_related("entries").filter(
+        entries__wallet=filters["wallet"]
+    )
+    return queryset
 
 
 def find_exchange_rates(filters=None):
     if not filters:
         filters = {}
-    to_currency = filters.get("to_currency")
-    from_currency = filters.get("from_currency", USD)
-    to_date = filters.get("date")
-    # The only from_currency in DB is USD, so no need to filter it.
-    # And we exclude the self-rate e.g. USD to USD or CAD to CAD.
-    queryset = ExchangeRate.objects.exclude(to_currency=from_currency)
 
-    if to_date:
-        queryset = queryset.filter(date=to_date)
+    to_date = filters.get("date", date.today())
+
+    queryset = ExchangeRate.objects.filter(date=to_date)
+
+    to_currency = filters.get("to_currency")
 
     if to_currency:
         if to_currency not in SUPPORTED_CURRENCIES:

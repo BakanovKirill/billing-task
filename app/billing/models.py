@@ -1,12 +1,19 @@
-from django.contrib.auth.models import AbstractUser
+from django.contrib.auth.models import AbstractUser, UserManager
 from django.db import models
 
 from billing.constants import CURRENCIES
 
 
+class UserManagerWithRelations(UserManager):
+    def get_queryset(self):
+        return super().get_queryset().select_related("wallet")
+
+
 class User(AbstractUser):
     country = models.CharField(max_length=200)
     city = models.CharField(max_length=200)
+
+    objects = UserManagerWithRelations()
 
 
 class Wallet(models.Model):
@@ -29,6 +36,9 @@ class Transaction(models.Model):
     created = models.DateTimeField(auto_now_add=True)
     description = models.CharField(max_length=255, null=True, blank=True)
     is_top_up = models.BooleanField(default=False)
+
+    class Meta:
+        ordering = ["-created"]
 
 
 class ExchangeRate(models.Model):

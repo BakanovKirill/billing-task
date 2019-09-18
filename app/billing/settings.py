@@ -28,7 +28,6 @@ INSTALLED_APPS = [
     "debug_toolbar",
     "rest_framework",
     "drf_yasg",
-
     "billing.apps.BillingAppConfig",
 ]
 
@@ -41,6 +40,7 @@ MIDDLEWARE = [
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "debug_toolbar.middleware.DebugToolbarMiddleware",
+    "querycount.middleware.QueryCountMiddleware",
 ]
 
 ROOT_URLCONF = "billing.urls"
@@ -114,7 +114,7 @@ STATIC_URL = "/static/"
 # Collect static won't work if you haven't configured this
 # django.core.exceptions.ImproperlyConfigured: You're using the staticfiles app without having set
 #  the STATIC_ROOT setting to a filesystem path.
-STATIC_ROOT = "/static/"
+STATIC_ROOT = os.path.join(BASE_DIR, "static/")
 
 # Indicate that we're being executed by uWSGI
 # This settings is used in urls.py to serve the static from within uWSGI
@@ -130,7 +130,7 @@ SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTOCOL", "https")
 AUTH_USER_MODEL = "billing.User"
 
 REST_FRAMEWORK = {
-    "DEFAULT_RENDERER_CLASSES": ("rest_framework.renderers.JSONRenderer",),
+    # "DEFAULT_RENDERER_CLASSES": ("rest_framework.renderers.JSONRenderer",),
     "DEFAULT_AUTHENTICATION_CLASSES": (
         "rest_framework_simplejwt.authentication.JWTAuthentication",
         "rest_framework.authentication.SessionAuthentication",
@@ -142,3 +142,7 @@ REST_FRAMEWORK = {
 
 
 EXCHANGE_RATES_URL = "https://api.exchangeratesapi.io/"
+
+QUERYCOUNT = {
+    'DISPLAY_DUPLICATES': 2,
+}
