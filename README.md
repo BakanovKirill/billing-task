@@ -20,8 +20,8 @@ $ docker-compose up
 
 # Notes:
 - default superuser credentials:
-    - Login: *admin* 
-    - Pass: *admin*
+    - Login: **admin**
+    - Pass: **admin**
 
 - db is populated with 2 users with 2 wallets.
 - 1 user has 100$ on a wallet with a recorded transaction.
