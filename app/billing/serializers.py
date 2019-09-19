@@ -97,3 +97,11 @@ class PaymentSerializer(serializers.Serializer):
             )
         attrs["destination_wallet"] = destination_wallet
         return attrs
+
+
+class ReportSerializer(serializers.Serializer):
+    id = serializers.CharField()
+    username = serializers.CharField()
+    created = serializers.DateTimeField()
+    currency = serializers.CharField()
+    amount = serializers.DecimalField(decimal_places=2, max_digits=20)

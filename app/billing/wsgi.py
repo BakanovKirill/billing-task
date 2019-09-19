@@ -9,6 +9,7 @@ https://docs.djangoproject.com/en/1.10/howto/deployment/wsgi/
 
 import os
 
+from django.conf import settings
 from django.core.wsgi import get_wsgi_application
 from billing.context import update_exchange_rates_for_date_if_not_exist
 
@@ -16,4 +17,5 @@ os.environ.setdefault("DJANGO_SETTINGS_MODULE", "billing.settings")
 
 application = get_wsgi_application()
 
-update_exchange_rates_for_date_if_not_exist()
+if not settings.TESTING:
+    update_exchange_rates_for_date_if_not_exist()

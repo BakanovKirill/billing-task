@@ -1,3 +1,4 @@
+from django.core.management import call_command
 from mock import patch
 from datetime import datetime, date
 from decimal import Decimal
@@ -7,8 +8,8 @@ from django.urls import reverse
 from rest_framework.test import APIClient
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from billing.constants import USD, EUR, CAD
-from billing.context import top_up_wallet
+from billing.constants import USD, EUR, CAD, SUPPORTED_CURRENCIES
+from billing.context import top_up_wallet, find_transactions
 from billing.models import User, Wallet, Transaction, ExchangeRate, TransactionEntry
 
 
@@ -96,6 +97,11 @@ class TestAPI(TestCase):
                 f"{reverse('exchange-rates')}?from_currency=USD&date={to_date}"
             )
             self.assertEquals(len(result.data["results"]), 3)  # excluding USD
+            for result in result.data["results"]:
+                self.assertEquals(result["from_currency"], USD)
+                self.assertIn(result["to_currency"], SUPPORTED_CURRENCIES)
+                self.assertIsNotNone(result["rate"])
+                self.assertIsNotNone(result["date"])
 
     def test_get_existing_exchange_rates(self):
         ExchangeRate.objects.create(
@@ -178,3 +184,38 @@ class TestAPI(TestCase):
         self.assertEquals(
             TransactionEntry.objects.count(), 3
         )  # 1 top up, 2 for payment
+
+    def test_report(self):
+        today = date.today()
+        ExchangeRate.objects.create(
+            from_currency=USD, to_currency=USD, rate=1, date=today
+        )
+        ExchangeRate.objects.create(
+            from_currency=USD, to_currency=EUR, rate=0.90, date=today
+        )
+        call_command("add_transactions")
+        transactions = Transaction.objects.count()
+        self.assertEquals(transactions, 102)
+
+        result = self.client.get(
+            f"{reverse('generate-report')}?username={self.user.username}"
+        )
+        self.assertEquals(result.status_code, 200)
+        self.assertEquals(len(result.data), 101)  # 102 - 1 for top up from another user
+        self.assertEquals(
+            sorted(result.data[0].keys()),
+            sorted(["id", "username", "created", "currency", "amount"]),
+        )
+
+        result = self.client.get(
+            f"{reverse('generate-report')}?username={self.user.username}&date_from={result.data[50]['created']}"
+        )
+        self.assertEquals(result.status_code, 200)
+        self.assertEquals(len(result.data), 51)
+
+        result = self.client.get(
+            f"{reverse('generate-report')}?"
+            f"username={self.user.username}&date_from={result.data[10]['created']}&date_to={result.data[5]['created']}"
+        )
+        self.assertEquals(result.status_code, 200)
+        self.assertEquals(len(result.data), 6)

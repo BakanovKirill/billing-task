@@ -1,13 +1,19 @@
 from datetime import date
 
+from django.db.models import F
 from django.shortcuts import redirect
 from django.urls import reverse
 from rest_framework import status, viewsets
 from rest_framework.authentication import BasicAuthentication
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.generics import CreateAPIView, ListAPIView
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework import serializers
+from rest_framework.settings import api_settings
+from rest_framework.views import APIView
+from rest_framework_csv.renderers import CSVRenderer
+from rest_framework_xml.renderers import XMLRenderer
 
 from billing.constants import USD
 from billing.context import (
@@ -17,6 +23,7 @@ from billing.context import (
     find_transactions,
     update_exchange_rates_for_date_if_not_exist,
 )
+from billing.models import TransactionEntry
 from billing.serializers import (
     TransactionSerializer,
     TopUpSerializer,
@@ -24,6 +31,7 @@ from billing.serializers import (
     UserSerializerWrite,
     UserSerializerRead,
     PaymentSerializer,
+    ReportSerializer,
 )
 
 
@@ -52,14 +60,14 @@ class TopUpWalletView(CreateAPIView):
     def post(self, request, *args, **kwargs):
         serializer_instance = self.get_serializer(data=request.data)
         serializer_instance.is_valid(raise_exception=True)
-        transaction = top_up_wallet(
+        transaction_instance = top_up_wallet(
             request.user.wallet, serializer_instance.validated_data["amount"]
         )
         return Response(
             status=status.HTTP_201_CREATED,
             data=dict(
                 balance=request.user.wallet.balance,
-                transaction=TransactionSerializer(instance=transaction).data,
+                transaction=TransactionSerializer(instance=transaction_instance).data,
             ),
         )
 
@@ -79,12 +87,15 @@ class TransactionViewset(viewsets.ModelViewSet):
         user_wallet = request.user.wallet
         if user_wallet.balance < payment_serializer.validated_data["amount"]:
             raise serializers.ValidationError("More gold is needed.")
-        transaction_data = send_payment(
+        transaction_instance = send_payment(
             source_wallet=user_wallet, **payment_serializer.validated_data
         )
         return Response(
             status=status.HTTP_201_CREATED,
-            data=dict(balance=user_wallet.balance, transaction=transaction_data),
+            data=dict(
+                balance=user_wallet.balance,
+                transaction=TransactionSerializer(instance=transaction_instance).data,
+            ),
         )
 
 
@@ -144,3 +155,51 @@ class ExchangeRateList(ListAPIView):
                 ).data
             }
         )
+
+
+class ReportView(APIView):
+    renderer_classes = api_settings.DEFAULT_RENDERER_CLASSES + [
+        CSVRenderer,
+        XMLRenderer,
+    ]
+
+    def get(self, request):
+        output_format = request.query_params.get("format")
+        username = request.query_params.get("username")
+
+        if not username:
+            raise serializers.ValidationError("username query param is required")
+        if not request.user.is_staff and username != request.user.username:
+            raise PermissionDenied(
+                "You need staff permissions to see another user report."
+            )
+
+        date_from = request.query_params.get("date_from")
+        date_to = request.query_params.get("date_to")
+
+        entries = TransactionEntry.objects.filter(
+            wallet__user__username=username
+        ).select_related("wallet__user", "transaction")
+
+        if date_from:
+            entries = entries.filter(transaction__created__gte=date_from)
+
+        if date_to:
+            entries = entries.filter(transaction__created__lte=date_to)
+
+        entries = entries.values(
+            "id",
+            "amount",
+            username=F("wallet__user__username"),
+            created=F("transaction__created"),
+            currency=F("wallet__currency"),
+        )
+
+        resp = Response(ReportSerializer(entries, many=True).data)
+
+        if output_format:
+            resp[
+                "Content-Disposition"
+            ] = f"attachment; filename='{username}_report.{output_format}'"
+
+        return resp

@@ -1,9 +1,9 @@
 """URL Configuration"""
 from __future__ import print_function
 from django.conf import settings
-from django.conf.urls import url
 from django.contrib import admin
-from django.urls import include, path
+from django.urls import include, path, re_path
+from rest_framework.urlpatterns import format_suffix_patterns
 
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from rest_framework import permissions
@@ -16,6 +16,7 @@ from billing.views import (
     ExchangeRateList,
     SignupView,
     TransactionViewset,
+    ReportView,
 )
 
 admin.site.site_header = "Billing Administration"
@@ -38,17 +39,17 @@ urlpatterns = [
     path("", index),
     path("admin/", admin.site.urls),
     path("api/auth/", include("rest_framework.urls")),
-    url(
+    re_path(
         r"^swagger(?P<format>\.json|\.yaml)$",
         schema_view.without_ui(cache_timeout=0),
         name="schema-json",
     ),
-    url(
+    re_path(
         r"^swagger/$",
         schema_view.with_ui("swagger", cache_timeout=0),
         name="schema-swagger-ui",
     ),
-    url(
+    re_path(
         r"^redoc/$", schema_view.with_ui("redoc", cache_timeout=0), name="schema-redoc"
     ),
     path("api/signup/", SignupView.as_view(), name="signup"),
@@ -61,6 +62,7 @@ urlpatterns = [
         TransactionViewset.as_view({"get": "list", "post": "post"}),
         name="transactions",
     ),
+    path("api/report/", ReportView.as_view(), name="generate-report"),
 ]
 
 # Host the static from uWSGI

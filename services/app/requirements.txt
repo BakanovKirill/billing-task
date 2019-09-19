@@ -7,6 +7,8 @@ django-annoying
 djangorestframework-simplejwt
 drf-yasg
 packaging
+djangorestframework-csv
+djangorestframework-xml
 
 # Dev packages
 pylint              # python code static checker
