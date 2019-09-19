@@ -5,14 +5,12 @@ from django.db import migrations, models
 
 class Migration(migrations.Migration):
 
-    dependencies = [
-        ('billing', '0002_auto_20190917_1326'),
-    ]
+    dependencies = [("billing", "0002_auto_20190917_1326")]
 
     operations = [
         migrations.AddField(
-            model_name='transaction',
-            name='is_top_up',
+            model_name="transaction",
+            name="is_top_up",
             field=models.BooleanField(default=False),
-        ),
+        )
     ]

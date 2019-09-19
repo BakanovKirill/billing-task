@@ -5,13 +5,10 @@ from django.db import migrations
 
 class Migration(migrations.Migration):
 
-    dependencies = [
-        ('billing', '0003_transaction_is_top_up'),
-    ]
+    dependencies = [("billing", "0003_transaction_is_top_up")]
 
     operations = [
         migrations.AlterModelOptions(
-            name='exchangerate',
-            options={'ordering': ('-date',)},
-        ),
+            name="exchangerate", options={"ordering": ("-date",)}
+        )
     ]

@@ -25,4 +25,4 @@ def calculate_currency_rate(target_rate, base_rate):
         we need to divide the original USD to CAD rate by new base_rate.
         Result: 1.33 / 0.90 = 1.48.
     """
-    return Decimal(target_rate / base_rate).quantize(Decimal('1.00'))
+    return Decimal(target_rate / base_rate).quantize(Decimal("1.00"))

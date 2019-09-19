@@ -140,7 +140,10 @@ def create_exchange_rates(for_date):
         many=True,
         data=[
             dict(
-                rate=round(rate, 2), from_currency=USD, to_currency=currency, date=for_date
+                rate=round(rate, 2),
+                from_currency=USD,
+                to_currency=currency,
+                date=for_date,
             )
             for currency, rate in data["rates"].items()
         ],

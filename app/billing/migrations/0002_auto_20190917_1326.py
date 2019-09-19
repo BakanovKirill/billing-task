@@ -5,18 +5,13 @@ from django.db import migrations, models
 
 class Migration(migrations.Migration):
 
-    dependencies = [
-        ('billing', '0001_initial'),
-    ]
+    dependencies = [("billing", "0001_initial")]
 
     operations = [
-        migrations.RemoveField(
-            model_name='transactionentry',
-            name='currency',
-        ),
+        migrations.RemoveField(model_name="transactionentry", name="currency"),
         migrations.AddField(
-            model_name='transaction',
-            name='description',
+            model_name="transaction",
+            name="description",
             field=models.CharField(blank=True, max_length=255, null=True),
         ),
     ]

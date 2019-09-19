@@ -54,32 +54,32 @@ class TestAPI(TestCase):
             reverse("top-up-wallet"), dict(amount=100), format="json"
         )
 
-        self.assertEquals(result.status_code, 401)
+        self.assertEqual(result.status_code, 401)
 
     def test_top_up_wallet_validation(self):
         for amount in [-100, 0, 0.001]:
             result = self.client.post(
                 reverse("top-up-wallet"), dict(amount=amount), format="json"
             )
-            self.assertEquals(result.status_code, 400)
-        self.assertEquals(Transaction.objects.count(), 0)
+            self.assertEqual(result.status_code, 400)
+        self.assertEqual(Transaction.objects.count(), 0)
 
     def test_top_up_wallet(self):
         result = self.client.post(
             reverse("top-up-wallet"), dict(amount=100), format="json"
         )
-        self.assertEquals(result.status_code, 201)
+        self.assertEqual(result.status_code, 201)
         transaction_data = result.data["transaction"]
-        self.assertEquals(transaction_data["description"], "Top up")
+        self.assertEqual(transaction_data["description"], "Top up")
         self.assertTrue(transaction_data["is_top_up"])
-        self.assertEquals(len(transaction_data["entries"]), 1)
-        self.assertEquals(transaction_data["entries"][0]["wallet"], self.user_wallet.id)
-        self.assertEquals(transaction_data["entries"][0]["amount"], "100.00")
-        self.assertEquals(Transaction.objects.count(), 1)
-        self.assertEquals(TransactionEntry.objects.count(), 1)
+        self.assertEqual(len(transaction_data["entries"]), 1)
+        self.assertEqual(transaction_data["entries"][0]["wallet"], self.user_wallet.id)
+        self.assertEqual(transaction_data["entries"][0]["amount"], "100.00")
+        self.assertEqual(Transaction.objects.count(), 1)
+        self.assertEqual(TransactionEntry.objects.count(), 1)
 
         self.user_wallet.refresh_from_db()
-        self.assertEquals(self.user_wallet.balance, 100)
+        self.assertEqual(self.user_wallet.balance, 100)
 
     def test_get_exchange_rates_downloads_new_rates(self):
         to_date = date.today().isoformat()
@@ -99,9 +99,9 @@ class TestAPI(TestCase):
             result = self.client.get(
                 f"{reverse('exchange-rates')}?from_currency=USD&date={to_date}"
             )
-            self.assertEquals(len(result.data["results"]), 3)  # excluding USD
+            self.assertEqual(len(result.data["results"]), 3)  # excluding USD
             for result in result.data["results"]:
-                self.assertEquals(result["from_currency"], USD)
+                self.assertEqual(result["from_currency"], USD)
                 self.assertIn(result["to_currency"], SUPPORTED_CURRENCIES)
                 self.assertIsNotNone(result["rate"])
                 self.assertIsNotNone(result["date"])
@@ -117,19 +117,19 @@ class TestAPI(TestCase):
             from_currency=USD, to_currency=CAD, rate=1.33, date=date.today()
         )
         result = self.client.get(f"{reverse('exchange-rates')}?from_currency=EUR")
-        self.assertEquals(len(result.data["results"]), 2)  # self rate excluded
+        self.assertEqual(len(result.data["results"]), 2)  # self rate excluded
 
-        self.assertEquals(result.data["results"][0]["from_currency"], EUR)
-        self.assertEquals(result.data["results"][0]["to_currency"], USD)
-        self.assertEquals(result.data["results"][1]["from_currency"], EUR)
-        self.assertEquals(result.data["results"][1]["to_currency"], CAD)
+        self.assertEqual(result.data["results"][0]["from_currency"], EUR)
+        self.assertEqual(result.data["results"][0]["to_currency"], USD)
+        self.assertEqual(result.data["results"][1]["from_currency"], EUR)
+        self.assertEqual(result.data["results"][1]["to_currency"], CAD)
         # Rates calculated according to from_currency in request
-        self.assertEquals(result.data["results"][0]["rate"], Decimal("1.11"))
-        self.assertEquals(result.data["results"][1]["rate"], Decimal("1.48"))
+        self.assertEqual(result.data["results"][0]["rate"], Decimal("1.11"))
+        self.assertEqual(result.data["results"][1]["rate"], Decimal("1.48"))
         result = self.client.get(
             f"{reverse('exchange-rates')}?from_currency=EUR&date={date.today()}"
         )
-        self.assertEquals(len(result.data["results"]), 2)  # self rate excluded
+        self.assertEqual(len(result.data["results"]), 2)  # self rate excluded
 
     def test_signup(self):
         result = self.anon_client.post(
@@ -144,17 +144,17 @@ class TestAPI(TestCase):
             ),
             format="json",
         )
-        self.assertEquals(result.status_code, 201)
+        self.assertEqual(result.status_code, 201)
         result = result.json()
         self.assertIsNotNone(result["id"])
         self.assertIsNotNone(result["wallet"])
-        self.assertEquals(result["email"], "order66@gmail.com")
-        self.assertEquals(result["username"], "hellothere")
+        self.assertEqual(result["email"], "order66@gmail.com")
+        self.assertEqual(result["username"], "hellothere")
         self.assertTrue(User.objects.filter(username="hellothere").count(), 1)
-        self.assertEquals(
+        self.assertEqual(
             sorted(result["wallet"].keys()), sorted(["id", "balance", "currency"])
         )
-        self.assertEquals(result["wallet"]["currency"], CAD)
+        self.assertEqual(result["wallet"]["currency"], CAD)
 
     def test_send_money(self):
         today = date.today()
@@ -164,7 +164,7 @@ class TestAPI(TestCase):
         ExchangeRate.objects.create(
             from_currency=USD, to_currency=EUR, rate=0.90, date=today
         )
-        self.assertEquals(self.user_wallet.balance, 0)
+        self.assertEqual(self.user_wallet.balance, 0)
         post_data = dict(
             amount=100,
             description="It's a trap!",
@@ -172,19 +172,19 @@ class TestAPI(TestCase):
         )
         result = self.client.post(reverse("transactions"), post_data, format="json")
         # didn't validate because not enough funds
-        self.assertEquals(result.status_code, 400)
-        self.assertEquals(result.json(), ["More gold is needed."])
+        self.assertEqual(result.status_code, 400)
+        self.assertEqual(result.json(), ["More gold is needed."])
         # Add 500 $ to user wallet
         top_up_wallet(self.user_wallet, 500)
         result = self.client.post(reverse("transactions"), post_data, format="json")
 
-        self.assertEquals(result.status_code, 201)
+        self.assertEqual(result.status_code, 201)
         self.user_wallet.refresh_from_db()
         self.user2_wallet.refresh_from_db()
-        self.assertEquals(self.user_wallet.balance, Decimal("400"))
-        self.assertEquals(self.user2_wallet.balance, Decimal("90"))
-        self.assertEquals(Transaction.objects.count(), 2)  # 1 top up, 1 payment
-        self.assertEquals(
+        self.assertEqual(self.user_wallet.balance, Decimal("400"))
+        self.assertEqual(self.user2_wallet.balance, Decimal("90"))
+        self.assertEqual(Transaction.objects.count(), 2)  # 1 top up, 1 payment
+        self.assertEqual(
             TransactionEntry.objects.count(), 3
         )  # 1 top up, 2 for payment
 
@@ -199,19 +199,19 @@ class TestAPI(TestCase):
         )
         call_command("add_transactions")
         transactions = Transaction.objects.count()
-        self.assertEquals(transactions, 102)
+        self.assertEqual(transactions, 102)
         # Check report query of another user doesn't work if you are not staff
         result = self.client.get(
             f"{reverse('generate-report')}?username={self.user2.username}"
         )
-        self.assertEquals(result.status_code, 403)
+        self.assertEqual(result.status_code, 403)
         # Check report works for self
         result = self.client.get(
             f"{reverse('generate-report')}?username={self.user.username}"
         )
-        self.assertEquals(result.status_code, 200)
-        self.assertEquals(len(result.data), 101)  # 102 - 1 for top up from another user
-        self.assertEquals(
+        self.assertEqual(result.status_code, 200)
+        self.assertEqual(len(result.data), 101)  # 102 - 1 for top up from another user
+        self.assertEqual(
             sorted(result.data[0].keys()),
             sorted(["id", "username", "created", "currency", "amount"]),
         )
@@ -219,15 +219,15 @@ class TestAPI(TestCase):
         result = self.client.get(
             f"{reverse('generate-report')}?username={self.user.username}&date_from={result.data[50]['created']}"
         )
-        self.assertEquals(result.status_code, 200)
-        self.assertEquals(len(result.data), 51)
+        self.assertEqual(result.status_code, 200)
+        self.assertEqual(len(result.data), 51)
         # Check report works with date_from and date_to
         result = self.client.get(
             f"{reverse('generate-report')}?"
             f"username={self.user.username}&date_from={result.data[10]['created']}&date_to={result.data[5]['created']}"
         )
-        self.assertEquals(result.status_code, 200)
-        self.assertEquals(len(result.data), 6)
+        self.assertEqual(result.status_code, 200)
+        self.assertEqual(len(result.data), 6)
 
         # Check CSV
         result = self.client.get(
@@ -238,5 +238,5 @@ class TestAPI(TestCase):
         cvs_reader = csv.reader(io.StringIO(content))
         body = list(cvs_reader)
         headers = body.pop(0)
-        self.assertEquals(headers, ["amount", "created", "currency", "id", "username"])
-        self.assertEquals(len(body), 101)
+        self.assertEqual(headers, ["amount", "created", "currency", "id", "username"])
+        self.assertEqual(len(body), 101)
