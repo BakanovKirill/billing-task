@@ -1,3 +1,6 @@
+import csv
+import io
+
 from django.core.management import call_command
 from mock import patch
 from datetime import datetime, date
@@ -186,6 +189,7 @@ class TestAPI(TestCase):
         )  # 1 top up, 2 for payment
 
     def test_report(self):
+        # Setup data before report testing
         today = date.today()
         ExchangeRate.objects.create(
             from_currency=USD, to_currency=USD, rate=1, date=today
@@ -196,7 +200,12 @@ class TestAPI(TestCase):
         call_command("add_transactions")
         transactions = Transaction.objects.count()
         self.assertEquals(transactions, 102)
-
+        # Check report query of another user doesn't work if you are not staff
+        result = self.client.get(
+            f"{reverse('generate-report')}?username={self.user2.username}"
+        )
+        self.assertEquals(result.status_code, 403)
+        # Check report works for self
         result = self.client.get(
             f"{reverse('generate-report')}?username={self.user.username}"
         )
@@ -206,16 +215,28 @@ class TestAPI(TestCase):
             sorted(result.data[0].keys()),
             sorted(["id", "username", "created", "currency", "amount"]),
         )
-
+        # Check report works with date_from filter
         result = self.client.get(
             f"{reverse('generate-report')}?username={self.user.username}&date_from={result.data[50]['created']}"
         )
         self.assertEquals(result.status_code, 200)
         self.assertEquals(len(result.data), 51)
-
+        # Check report works with date_from and date_to
         result = self.client.get(
             f"{reverse('generate-report')}?"
             f"username={self.user.username}&date_from={result.data[10]['created']}&date_to={result.data[5]['created']}"
         )
         self.assertEquals(result.status_code, 200)
         self.assertEquals(len(result.data), 6)
+
+        # Check CSV
+        result = self.client.get(
+            f"{reverse('generate-report')}?username={self.user.username}&format=csv"
+        )
+
+        content = result.content.decode("utf-8")
+        cvs_reader = csv.reader(io.StringIO(content))
+        body = list(cvs_reader)
+        headers = body.pop(0)
+        self.assertEquals(headers, ["amount", "created", "currency", "id", "username"])
+        self.assertEquals(len(body), 101)
