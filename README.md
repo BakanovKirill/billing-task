@@ -18,15 +18,6 @@ $ docker-compose up
 
 *Now app is available on http://localhost*
 
-## Container commands
-
-The image has 
-
-Run a command:
-```
-$ docker-compose run app  <command>
-```
-
 # Tests
 
 ```
