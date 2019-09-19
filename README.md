@@ -1,5 +1,8 @@
 # Billing app 
 
+Default landing page is Swagger with all avialable endpoints.
+Recommended way of testing: using Postman or similar tool because app uses JWT tokens which need to be passed in `Authorization` header.
+
 ## Init project:
 ```
 $ cd billing-task
@@ -10,15 +13,10 @@ $ docker-compose run app setup_db
 
 Launch:
 ```
-$ docker-compose up app
+$ docker-compose up
 ```
 
-Launch Nginx *(optional)*:
-```
-$ docker-compose up web
-```
-
-*Now your django app is available on http://localhost, but it's optional for development*
+*Now app is available on http://localhost*
 
 ## Container commands
 
@@ -29,22 +27,8 @@ Run a command:
 $ docker-compose run app  <command>
 ```
 
-Makemigrations:
+# Tests
 
 ```
-docker-compose run -u $(id -u):$(id -g) app manage makemigrations
+$ docker-compose run app manage test billing.tests.TestAPI
 ```
-
-Available commands:
-
-| Command   | Description                                                                     |
-|-----------|---------------------------------------------------------------------------------|
-| dev       | Start a normal Django development server                                        |
-| bash      | Start a bash shell                                                              |
-| manage    | Start manage.py                                                                 |
-| setup_db  | Setup the initial database. Configure *$POSTGRES_DB_NAME* in docker-compose.yml |
-| lint      | Run pylint                                                                      |
-| python    | Run a python command                                                            |
-| shell     | Start a Django Python shell                                                     |
-| uwsgi     | Run uwsgi server                                                                |
-| help      | Show this message                                                               |
