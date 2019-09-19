@@ -1,0 +1,78 @@
+[
+  {
+    "model": "billing.user",
+    "pk": 1,
+    "fields": {
+      "password": "pbkdf2_sha256$150000$y4KqGe3E7aIP$GuJeQFfJJM07Bo285Z93LyK1NlqpDrkwrLfjkbS5Q3o=",
+      "last_login": "2019-09-19T10:29:13.585Z",
+      "is_superuser": true,
+      "username": "admin",
+      "first_name": "Kirill",
+      "last_name": "Bakanov",
+      "email": "kirill.bakanov@gmail.com",
+      "is_staff": true,
+      "is_active": true,
+      "date_joined": "2019-09-17T11:12:11Z",
+      "country": "",
+      "city": "",
+      "groups": [],
+      "user_permissions": []
+    }
+  },
+  {
+    "model": "billing.user",
+    "pk": 6,
+    "fields": {
+      "password": "asdfg12345",
+      "last_login": null,
+      "is_superuser": false,
+      "username": "vasya",
+      "first_name": "Vasya",
+      "last_name": "Pupkin",
+      "email": "vasya@gmail.com",
+      "is_staff": false,
+      "is_active": true,
+      "date_joined": "2019-09-18T19:51:57Z",
+      "country": "Sadn",
+      "city": "Lviv",
+      "groups": [],
+      "user_permissions": []
+    }
+  },
+  {
+    "model": "billing.wallet",
+    "pk": 2,
+    "fields": {
+      "balance": "100.00",
+      "user": 1,
+      "currency": "USD"
+    }
+  },
+  {
+    "model": "billing.wallet",
+    "pk": 7,
+    "fields": {
+      "balance": "0.00",
+      "user": 6,
+      "currency": "CAD"
+    }
+  },
+  {
+    "model": "billing.transaction",
+    "pk": 2,
+    "fields": {
+      "created": "2019-09-18T15:08:30.883Z",
+      "description": "Top up",
+      "is_top_up": true
+    }
+  },
+  {
+    "model": "billing.transactionentry",
+    "pk": 2,
+    "fields": {
+      "amount": "100.00",
+      "wallet": 2,
+      "transaction": 2
+    }
+  }
+]

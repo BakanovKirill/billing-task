@@ -62,7 +62,13 @@ case "$1" in
     setup_db)
         psql -h $POSTGRES_PORT_5432_TCP_ADDR -U $POSTGRES_USER -c "CREATE DATABASE $POSTGRES_DB_NAME"
         python manage.py migrate
-        python manage.py loaddata user.json
+        python manage.py loaddata initial.json
+    ;;
+    recreate_db)
+        psql -h $POSTGRES_PORT_5432_TCP_ADDR -U $POSTGRES_USER -c "DROP DATABASE $POSTGRES_DB_NAME"
+        psql -h $POSTGRES_PORT_5432_TCP_ADDR -U $POSTGRES_USER -c "CREATE DATABASE $POSTGRES_DB_NAME"
+        python manage.py migrate
+        python manage.py loaddata initial.json
     ;;
     lint)
         pylint "${@:2}"

@@ -80,9 +80,9 @@ def find_exchange_rates(filters=None):
     if not filters:
         filters = {}
 
-    to_date = filters.get("date", date.today())
+    for_date = filters.get("for_date", date.today())
 
-    queryset = ExchangeRate.objects.filter(date=to_date)
+    queryset = ExchangeRate.objects.filter(date=for_date)
 
     to_currency = filters.get("to_currency")
 
@@ -116,3 +116,13 @@ def create_exchange_rates(date):
     )
     serializer.is_valid(raise_exception=True)
     serializer.save()
+
+
+def update_exchange_rates_for_date_if_not_exist(for_date=None):
+    if not for_date:
+        for_date = date.today()
+    print(f"Checking if exchange rates are present for {for_date}")
+    # Download exchange rates for the current day on app startup
+    if not find_exchange_rates(dict(for_date=for_date)).exists():
+        print(f"Downloading exchange rates for {for_date}")
+        create_exchange_rates(for_date)

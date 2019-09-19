@@ -40,6 +40,11 @@ class Transaction(models.Model):
     class Meta:
         ordering = ["-created"]
 
+    def __str__(self):
+        return (
+            f"{self.description}. Operations: {[entry for entry in self.entries.all()]}"
+        )
+
 
 class ExchangeRate(models.Model):
     """

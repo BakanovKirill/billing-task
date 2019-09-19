@@ -1,6 +1,7 @@
 from datetime import date
 
-from django.shortcuts import render
+from django.shortcuts import redirect
+from django.urls import reverse
 from rest_framework import status, viewsets
 from rest_framework.authentication import BasicAuthentication
 from rest_framework.generics import CreateAPIView, ListAPIView
@@ -12,9 +13,9 @@ from billing.constants import USD
 from billing.context import (
     top_up_wallet,
     find_exchange_rates,
-    create_exchange_rates,
     send_payment,
     find_transactions,
+    update_exchange_rates_for_date_if_not_exist,
 )
 from billing.serializers import (
     TransactionSerializer,
@@ -27,7 +28,7 @@ from billing.serializers import (
 
 
 def index(request):
-    return render(request, template_name="index.html")
+    return redirect(reverse("schema-swagger-ui"))
 
 
 class SignupView(CreateAPIView):
@@ -91,10 +92,10 @@ class ExchangeRateList(ListAPIView):
     serializer_class = ExchangeRateSerializerRead
 
     def get_queryset(self):
-        to_date = self.request.query_params.get("date", date.today())
+        for_date = self.request.query_params.get("date", date.today())
         queryset = find_exchange_rates(
             dict(
-                to_date=to_date,
+                for_date=for_date,
                 from_currency=self.request.query_params.get("from_currency", USD),
                 to_currency=self.request.query_params.get("to_currency"),
             )
@@ -113,17 +114,16 @@ class ExchangeRateList(ListAPIView):
         2. all existing to USD for today: `?from_currency=USD`
         """
         from_currency = self.request.query_params.get("from_currency", USD)
-        to_date = date.fromisoformat(
+        for_date = date.fromisoformat(
             self.request.query_params.get("date", date.today().isoformat())
         )
 
         # Download new rates for date if needed.
-        if not find_exchange_rates(dict(date=to_date)).exists():
-            create_exchange_rates(date=to_date)
+        update_exchange_rates_for_date_if_not_exist(for_date)
 
         # Find base rate for currency conversion calculations.
         exchange_rate = find_exchange_rates(
-            dict(to_currency=from_currency, date=to_date)
+            dict(to_currency=from_currency, for_date=for_date)
         ).first()
 
         if not exchange_rate:
