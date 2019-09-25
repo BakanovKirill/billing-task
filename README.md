@@ -9,6 +9,7 @@ Covers a task for creating API for a billing system which provides the following
 - User can see the generated report with transactions history on his wallet: 
   - without date period
   - with start date or end date or both.
+- User can request exchange rates between specific currencies (USD, EUR, CAD, CNY) for any date (today or in the past).
   
 
 Default landing page is Swagger with all avialable endpoints.
